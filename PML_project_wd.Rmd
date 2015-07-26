@@ -1,0 +1,217 @@
+---
+title: "PML_project"
+author: "Coursera student 75055"
+date: "Sunday, July 26, 2015"
+output: 
+    html_document: 
+        keep_md: true
+---
+
+.
+
+.
+
+## Introduction
+
+This paper documents a model that predicts if a weightlifting exercise, the Unilateral Dumbbell Biceps Curl, has been done correctly or not; if the latter the model predicts what was wrong. A correct exercise scores an A.There are five mutually exclusive incorrect ways to do the exercises (scoring B, C, D, or E). The outcome is predicted on the basis of measurements of movement sensors on a dumbbell, the waste, the arm and the forearm [1].
+
+.
+
+## Data
+
+The used train and testset data are available on the internet [2] 
+
+#### load used libraries
+```{r, echo=FALSE}
+library(caret)
+library(rattle)
+```
+
+#### --- Download the train data from the internet --------------
+```{r}
+if (!file.exists("datTrain.csv")) {
+    url  = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+    dest = "datTrain.csv"
+    meth = "internal"
+    quit = TRUE
+    mode = "wb"
+    download.file(url, dest, meth, quit, mode)
+    # NOTE this works under windows 7, modify if nessesairy
+} 
+train0 <- read.csv("datTrain.csv",na.strings=c("NA",""))
+```
+
+#### --- Download the test data from the internet --------------
+```{r}
+if (!file.exists("datTest.csv")) {
+    url  = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+    dest = "datTest.csv"
+    meth = "internal"
+    quit = TRUE
+    mode = "wb"
+    download.file(url, dest, meth, quit, mode)
+    # NOTE this works under windows 7, modify if nessesairy
+} 
+test0 <- read.csv("datTest.csv",na.strings=c("NA",""))
+```
+
+#### data exploration
+
+The train data consists of 19622 observation of 160 variables. 
+Only 406 of the 19622 observations have valid values for all the variables. 
+The other 19216 observation all have have invalid values for exactly the same 100 variables. 
+
+The distribution of the A,B,C,D,E scores of the six subjects are:
+```{r}
+table(train0$classe,train0$user_name)
+```
+
+#### data selection 
+
+The 100 variables for which the data are mostly missing were omitted. 
+From the remaining 60 variables, the first seven are purely administrative (are not movement measurements or the outcome registration), these where omitted also. 
+
+```{r}
+# remove mostly NA columns
+NA_in_col_cnt <- colSums(is.na(train0))
+keep_col      <- NA_in_col_cnt < 500
+train1        <- train0[,keep_col]
+# remove first seven admin columns
+train2 <- train1[,-c(1:7)]
+dim(train2)
+sum(is.na(train2))
+```
+
+So the data that are useful consists of 19622 observations of 53 variables. There are no NA's in this data, all but the outcome registration (A,B,C,D,E) are numeric or integer. 
+
+40% of the train2 data wil be set aside to validate the model (i.e. produce an out of sample error prediction)
+
+```{r}
+set.seed(75055)
+idxValidate <- createDataPartition( y=train2$classe , p=0.4, list=FALSE )
+valSet <- train2[ idxValidate,]
+dim(valSet)
+trnSet <- train2[-idxValidate,]
+dim(trnSet)
+```
+
+
+The last of this 53 is the outcome variable classe (with the values A,B,C,D and E). The outcome data were written to a vector named y -the y in y=f(x1,x2...,x53)-. 
+
+```{r}
+y <- trnSet[,53]
+str(y)
+```
+
+The remaining data were written to a data-frame named predict -the data which can be used to predict the outcome y-. All the predict data are numeric or integer.
+
+```{r}
+predict <- trnSet[,-53]
+str(predict)
+```
+
+.
+
+## Model building
+
+The y and the predict can be used to build a model.
+
+```{r}
+model <- train(classe ~ ., method="rpart", data=trnSet)
+pred <- predict(model,predict)
+confusionMatrix(pred,y)
+```
+
+We can visualize the decision tree using the rattle library.
+
+```{r}
+fancyRpartPlot(model$finalModel)
+```
+
+The inside sample accuracy of the model is about 50%. It is clear that this not a very good model.
+
+However the model can be used to demonstrate how the the model building and testing process should go. It is the main object of this paper to show the steps in that process, so for the moment we will not try to find a better model, but work with this one. (See the discussion section for suggestions for a better model choice.)
+
+The next step in the process is to validate the model (i.e. use the valSet data to compute the out of sample accuracy).
+
+.
+
+## Validation 
+
+First build the y and predict for the validation data.
+
+```{r}
+yVal       <- valSet[, 53]
+predictVal <- valSet[,-53]
+```
+
+Then use our model to predict on the out of sample data, and construct a confusion matrix to see how good the prediction is.
+
+```{r}
+predVal <- predict(model, predictVal)
+confusionMatrix(predVal, yVal)
+```
+
+The good news is that the out of sample accuracy is only slightly smaller than the in sample accuracy (49% compared to the original 50% accuracy). 
+
+So with this model we can hope to get about 49% (i.e. about 10 out of the 20 cases) of predictions on unseen data correct.
+
+.
+
+## predicting the results of the test data
+
+The model can also be used to predict the outcomes of our test data.
+
+The first step is to remove the unwanted columns from the test set. To do that we must use the keep_col vector we constructed earlier. 
+
+The next step is to construct the y and the predict data for the test data.
+
+```{r}
+# remove unwanted colums
+test1  <- test0[,keep_col]
+tstSet <- test1[,-c(1:7)]
+# construct yTst and predictTst
+yTst    <- tstSet[, 53]  
+predTst <- tstSet[,-53]
+```
+
+Then use our model to predict the outcomes of our test data,
+
+```{r}
+# produce the tstVals
+tstVal <- predict(model, predTst)
+# show the reult
+tstVal
+```
+
+The results are very suspect, there seem to be no cases B,D or E.
+
+And indeed the Coursera [5] site reported that only 8 out of the 20 predictions were correct.
+
+According to the decision tree above, B is the best second prediction when a prediction A is incorrect.  
+For an incorrect C the alternatives B,D or E are about as likely (all three about 20%). To keep things simple I will replace an incorrect C also with a B.  
+So when an answer is incorrect I will try B as an alternative.
+
+Now Coursera reports 16 out of 20 correct.
+
+.
+
+## Discussion 
+
+The found model is clearly not that good. The logical thing to do is to spend effort and time to find a better one. So that is what I tried to do. I had especially high hopes for the random forest model. Alas, my computer running on 4 of its 7 cores was still busy after 3.5 hours, I ran out of time and had to redirect my efforts. With a heavy heart I killed the job. 
+
+To show that I understood the required steps in the process, I decided to work with a simple decision tree (which still takes 2 minutes to compute).
+
+The main lesson learned is that for machine learning even on moderate big data (in our case say 20,000 cases of 50 variables) performance is an issue (for possible solutions see [4])
+
+.
+
+## References
+
+[1] Ugulino, W.; Cardador, D.; Vega, K.; Velloso,E.; Milidiu,R.; Fuks,H. Wearable Computing: Accelerometers' Data
+Classification of Body Postures and Movements [(www->)](http://groupware.les.inf.puc-rio.br/har)  
+[2] train data [(www->)](https://d396qusza40orc.cloudfront.net/predmachlearn/pml?training.csv); test data [(www->)](https://d396qusza40orc.cloudfront.net/predmachlearn/pml?testing.csv)  
+[3] An Introduction to Statistical Learning with Applications in R, Gareth James, Daniela Witten, Trevor Hastie and Robert Tibshirani [(www->)](http://www-bcf.usc.edu/~gareth/ISL/data.html)  
+[4] Model Training and Tuning [(www->)](http://topepo.github.io/caret/training.html#custom)  
+[5] Coursera, Practical Machine Learning [(www->)](https://www.coursera.org/course/predmachlearn)
+
