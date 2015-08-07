@@ -157,7 +157,8 @@ The remaining 90% of the train2 data will be set aside to validate the model (i.
 
 ```r
 set.seed(75055)
-idxValidate <- createDataPartition( y=train2$classe , p=0.9, list=FALSE ) # NOTE use 0.9 to reduce cpu time
+idxValidate <- createDataPartition( y=train2$classe , p=0.9, list=FALSE ) 
+# NOTE use 0.9 to reduce cpu time
 valSet <- train2[ idxValidate,]
 dim(valSet)
 ```
@@ -364,7 +365,7 @@ Coursera reports that our model got 17 out of 20 correct (slightly less than the
 
 Using the confusion matrix of our validation data, we can say that an incorrect A probably is a B, an incorrect C is probably a B and an incorrect D probably a C. If we use these probable alternatives, Coursera reports that 19 out of 20 are correct.
 
-.
+. . .
 
 ## Discussion 
 
@@ -375,7 +376,7 @@ Possible solutions to the performance problem are:
 - use library(doParallel) + registerDoParallel (cores=2),   
 cores=3 or 4 would be better if your computer can handle it,   
 installing more working memory will make a larger number of cores possible.   
-- do not make the train data set larger than needed (small is beatifull).   
+- do not make the train data set larger than needed (small is beautiful).   
 - save the trained model and reuse it (do not train the model over and over again)   
 - Buy a new computer with higher speed and 32 or 64 Gigs of RAM.   
 - Hire for a few dollars time on an Amazon cloud computer (with lots of cores and even more RAM)   
